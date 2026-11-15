@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="ml">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scholars Meet – Documents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Malayalam:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --green:#0f6b4f; --bg:#f4f7f5; --card:#fff; --text:#1d2b25; --muted:#66756e; --line:#d9e2dd; --err:#b3261e; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:'Noto Sans Malayalam',system-ui,sans-serif; background:var(--bg); color:var(--text); line-height:1.6; }
+  header { background:var(--green); color:#fff; padding:28px 16px; text-align:center; }
+  header h1 { margin:0 0 4px; font-size:1.5rem; }
+  header p { margin:0; opacity:.9; font-size:.95rem; }
+  main { max-width:760px; margin:0 auto; padding:16px; }
+  .card { border:1px solid var(--line); background:var(--card); border-radius:12px; margin:0 0 16px; padding:18px 18px 6px; }
+  .card h2 { margin:0 0 12px; font-size:1.05rem; color:var(--green); }
+  .field { margin-bottom:14px; }
+  label.l { display:block; font-weight:600; margin-bottom:4px; }
+  label.l small { display:block; font-weight:400; color:var(--muted); font-size:.82rem; }
+  input[type=text], input[type=tel] { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font:inherit; background:#fff; }
+  input:focus { outline:2px solid var(--green); border-color:transparent; }
+  .req { color:var(--err); }
+  button { width:100%; padding:14px; border:0; border-radius:10px; background:var(--green); color:#fff; font:inherit; font-weight:700; font-size:1.05rem; cursor:pointer; }
+  button.ghost { background:#fff; color:var(--green); border:1px solid var(--green); padding:10px; font-size:.95rem; }
+  button:disabled { opacity:.6; cursor:wait; }
+  #msg { margin:12px 0; padding:12px 14px; border-radius:8px; display:none; }
+  #msg.err { display:block; background:#fdecea; color:var(--err); }
+  #msg.info { display:block; background:#e8f3ee; color:var(--green); }
+  #thanks { display:none; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:32px 20px; text-align:center; }
+  #thanks h2 { color:var(--green); margin-top:0; }
+  .found { background:#e8f3ee; border:1px solid #bcd8cb; border-radius:10px; padding:12px 14px; margin-bottom:14px; }
+  .found b { color:var(--green); }
+  .files { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:560px){ .files { grid-template-columns:1fr; } }
+  .slot { border:1.5px dashed var(--line); border-radius:10px; padding:10px; background:#fafcfb; }
+  .slot.ok { border-style:solid; border-color:var(--green); background:#f1f8f4; }
+  .slot .name { font-size:.8rem; color:var(--muted); word-break:break-all; margin-top:6px; }
+  .slot img { max-width:100%; max-height:120px; border-radius:6px; display:block; margin-top:6px; }
+  .slot input[type=file] { width:100%; font-size:.85rem; }
+  .consent { display:flex; gap:10px; align-items:flex-start; margin:6px 0 16px; }
+  .consent input { margin-top:6px; }
+  .hint { font-size:.85rem; color:var(--muted); margin:0 0 14px; }
+  .hp { position:absolute; left:-9999px; }
+  #step2 { display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>പാസ്പോർട്ട് / ഐഡി വിവരങ്ങൾ</h1>
+  <p>Scholars Meet · Passport &amp; ID details</p>
+</header>
+
+<main>
+  <div id="thanks">
+    <h2>جزاكم الله خيراً</h2>
+    <p>രേഖകൾ സ്വീകരിച്ചു. നന്ദി.<br><small>Your documents have been submitted. Thank you.</small></p>
+  </div>
+
+  <div id="app">
+    <!-- STEP 1 -->
+    <div class="card" id="step1">
+      <h2>1. മൊബൈൽ നമ്പർ · Your mobile number</h2>
+      <p class="hint">നേരത്തെ രജിസ്റ്റർ ചെയ്ത നമ്പർ നൽകുക. (Enter the number you registered with.)</p>
+      <div class="field">
+        <label class="l" for="mobile">മൊബൈൽ നമ്പർ <span class="req">*</span><small>Mobile number</small></label>
+        <input id="mobile" type="tel" inputmode="tel" autocomplete="tel">
+      </div>
+      <button type="button" id="findBtn" style="margin-bottom:16px">വിവരങ്ങൾ കണ്ടെത്തുക · Find my details</button>
+    </div>
+
+    <!-- STEP 2 -->
+    <form id="step2" novalidate>
+      <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <div class="card">
+        <h2>2. താങ്കളുടെ വിവരങ്ങൾ · Your details</h2>
+        <div class="found" id="found"></div>
+        <button type="button" class="ghost" id="changeBtn" style="margin-bottom:16px">മറ്റൊരു നമ്പർ · Use a different number</button>
+      </div>
+
+      <div class="card">
+        <h2>3. സ്പോൺസർ · Sponsor</h2>
+        <div class="field">
+          <label class="l" for="sponsor_name">സ്പോൺസറുടെ പേര് <span class="req">*</span><small>Sponsor name</small></label>
+          <input id="sponsor_name" type="text" autocomplete="off">
+        </div>
+        <div class="field">
+          <label class="l" for="sponsor_phone">സ്പോൺസറുടെ ഫോൺ നമ്പർ <span class="req">*</span><small>Sponsor phone number</small></label>
+          <input id="sponsor_phone" type="tel" inputmode="tel" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>4. രേഖകൾ അപ്‌ലോഡ് ചെയ്യുക · Upload documents</h2>
+        <p class="hint">PDF അല്ലെങ്കിൽ ഫോട്ടോ (JPG / PNG). ഓരോ ഫയലും 10 MB-ൽ താഴെ. വ്യക്തമായി വായിക്കാവുന്ന ഫോട്ടോ എടുക്കുക. (PDF or photo, each file under 10 MB. Make sure the text is clearly readable.)</p>
+        <div class="files" id="files"></div>
+        <div style="height:12px"></div>
+      </div>
+
+      <div class="card">
+        <label class="consent">
+          <input type="checkbox" id="consent">
+          <span>ഈ രേഖകൾ പരിപാടിയുടെ രജിസ്ട്രേഷൻ ആവശ്യങ്ങൾക്ക് മാത്രം ഉപയോഗിക്കുന്നതിന് ഞാൻ സമ്മതിക്കുന്നു. <span class="req">*</span><br>
+          <small style="color:var(--muted)">I agree that these documents will be used only for the registration purposes of this programme.</small></span>
+        </label>
+      </div>
+
+      <div id="msg"></div>
+      <button type="submit" id="submitBtn">സമർപ്പിക്കുക · Submit</button>
+      <p class="hint" style="margin-top:10px">വീണ്ടും സമർപ്പിച്ചാൽ പുതിയ വിവരങ്ങൾ പഴയതിന് പകരം സ്വീകരിക്കും. (Submitting again replaces your earlier submission.)</p>
+    </form>
+    <div id="msg1" style="margin-top:8px"></div>
+  </div>
+</main>
+
+<script>
+/* ============ PUT YOUR SUPABASE DETAILS HERE (same as the other forms) ============ */
+const SUPABASE_URL  = 'https://vpgvxhqzuypjjhihqhmv.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwZ3Z4aHF6dXlwampoaWhxaG12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQxMTU3NzYsImV4cCI6MjEwOTY5MTc3Nn0.SniaUet5RfGFR6Oa_8sPyXXVN6Nxianeu68b1CCT9f8';
+/* ================================================================================== */
+const BUCKET = 'passport-docs';
+const MAX_MB = 10;
+
+const SLOTS = [
+  { key:'passport_front', ml:'പാസ്പോർട്ട് – മുൻവശം', en:'Passport – front page' },
+  { key:'passport_back',  ml:'പാസ്പോർട്ട് – പിൻവശം', en:'Passport – back page' },
+  { key:'id_front',       ml:'ഐഡി കാർഡ് – മുൻവശം',   en:'ID card – front' },
+  { key:'id_back',        ml:'ഐഡി കാർഡ് – പിൻവശം',   en:'ID card – back' },
+];
+const chosen = {};            // key -> File
+let participant = null;       // {id, full_name, zone, unit}
+let mobileUsed = '';
+
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+const $ = (id) => document.getElementById(id);
+const msg = $('msg'), msg1 = $('msg1');
+
+function say(el, kind, text) { el.className = kind; el.textContent = text; el.style.display = text ? 'block' : 'none';
+  if (text) el.scrollIntoView({ behavior:'smooth', block:'center' }); }
+const digits = (s) => (s || '').replace(/\D/g, '');
+
+/* ---- build the 4 upload slots ---- */
+SLOTS.forEach(s => {
+  const d = document.createElement('div'); d.className = 'slot'; d.id = 'slot_' + s.key;
+  d.innerHTML = `<label class="l" for="f_${s.key}">${s.ml} <span class="req">*</span><small>${s.en}</small></label>
+    <input type="file" id="f_${s.key}" accept="application/pdf,image/*">
+    <div class="name"></div><div class="pv"></div>`;
+  $('files').appendChild(d);
+  d.querySelector('input').addEventListener('change', (e) => {
+    const f = e.target.files[0]; const nameEl = d.querySelector('.name'); const pv = d.querySelector('.pv');
+    pv.innerHTML = ''; delete chosen[s.key]; d.classList.remove('ok'); nameEl.textContent = '';
+    if (!f) return;
+    if (f.size > MAX_MB * 1024 * 1024 && !f.type.startsWith('image/')) { nameEl.textContent = 'ഫയൽ വളരെ വലുതാണ് · File too large (max ' + MAX_MB + ' MB)'; e.target.value = ''; return; }
+    chosen[s.key] = f; d.classList.add('ok');
+    nameEl.textContent = f.name + ' (' + (f.size / 1048576).toFixed(1) + ' MB)';
+    if (f.type.startsWith('image/') && f.type !== 'image/heic' && f.type !== 'image/heif') {
+      const img = document.createElement('img'); img.src = URL.createObjectURL(f); img.alt = ''; pv.appendChild(img);
+    }
+  });
+});
+
+/* ---- step 1: find the participant ---- */
+$('findBtn').addEventListener('click', async () => {
+  say(msg1, '', '');
+  const m = $('mobile').value.trim();
+  if (digits(m).length < 6) return say(msg1, 'err', 'ശരിയായ മൊബൈൽ നമ്പർ നൽകുക · Please enter a valid mobile number.');
+  $('findBtn').disabled = true; $('findBtn').textContent = 'തിരയുന്നു… · Searching…';
+  const { data, error } = await db.rpc('lookup_participant', { p_mobile: m });
+  $('findBtn').disabled = false; $('findBtn').textContent = 'വിവരങ്ങൾ കണ്ടെത്തുക · Find my details';
+  if (error) { console.error(error); return say(msg1, 'err', 'തിരയാൻ കഴിഞ്ഞില്ല. വീണ്ടും ശ്രമിക്കുക · Could not search, please try again.'); }
+  if (!data || !data.length) return say(msg1, 'err', 'ഈ നമ്പർ രജിസ്റ്റർ ചെയ്തിട്ടില്ല. നമ്പർ പരിശോധിക്കുക, അല്ലെങ്കിൽ ആദ്യം പങ്കെടുക്കുന്നവരുടെ ഫോം പൂരിപ്പിക്കുക. · This number is not registered. Check the number or fill the participant details form first.');
+  participant = data[0]; mobileUsed = m;
+  const f = $('found'); f.innerHTML = '';
+  [['പേര് · Name', participant.full_name], ['സോൺ · Zone', participant.zone], ['യൂണിറ്റ് · Unit', participant.unit]].forEach(([k, v]) => {
+    const p = document.createElement('div'); const b = document.createElement('b'); b.textContent = k + ': ';
+    p.appendChild(b); p.appendChild(document.createTextNode(v || '—')); f.appendChild(p);
+  });
+  $('step1').style.display = 'none'; $('step2').style.display = 'block'; window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+$('changeBtn').addEventListener('click', () => { participant = null; $('step2').style.display = 'none'; $('step1').style.display = 'block'; say(msg, '', ''); });
+
+/* ---- image helper: shrink big phone photos so they upload fast ---- */
+async function prepare(file) {
+  const okImg = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
+  if (!okImg || file.size < 1.5 * 1048576) return { blob: file, ext: extOf(file) };
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, 2200 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas'); c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.85));
+    if (blob && blob.size < file.size) return { blob: new File([blob], 'photo.jpg', { type: 'image/jpeg' }), ext: 'jpg' };
+  } catch (e) { console.warn('compress failed, uploading original', e); }
+  return { blob: file, ext: extOf(file) };
+}
+function extOf(f) {
+  const map = { 'application/pdf':'pdf', 'image/jpeg':'jpg', 'image/png':'png', 'image/webp':'webp', 'image/heic':'heic', 'image/heif':'heif' };
+  return map[f.type] || (f.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5);
+}
+
+/* ---- step 2: upload + save ---- */
+$('step2').addEventListener('submit', async (e) => {
+  e.preventDefault(); say(msg, '', '');
+  if ($('step2').website.value) return;                           // honeypot
+  const sName = $('sponsor_name').value.trim(), sPhone = $('sponsor_phone').value.trim();
+  if (sName.length < 2) { $('sponsor_name').focus(); return say(msg, 'err', 'സ്പോൺസറുടെ പേര് നൽകുക · Please enter the sponsor name.'); }
+  const sd = digits(sPhone).length; if (sd < 6 || sd > 20) { $('sponsor_phone').focus(); return say(msg, 'err', 'സ്പോൺസറുടെ ഫോൺ നമ്പർ ശരിയായി നൽകുക · Please enter a valid sponsor phone number.'); }
+  for (const s of SLOTS) if (!chosen[s.key]) return say(msg, 'err', `"${s.ml}" അപ്‌ലോഡ് ചെയ്യുക · Please upload: ${s.en}`);
+  if (!$('consent').checked) return say(msg, 'err', 'സമ്മതം രേഖപ്പെടുത്തുക · Please tick the consent box.');
+
+  const btn = $('submitBtn'); btn.disabled = true;
+  const paths = {};
+  try {
+    let i = 0;
+    for (const s of SLOTS) {
+      i++; btn.textContent = `അപ്‌ലോഡ് ചെയ്യുന്നു ${i}/4… · Uploading ${i}/4…`;
+      const { blob, ext } = await prepare(chosen[s.key]);
+      if (blob.size > MAX_MB * 1048576) throw new Error('too_large:' + s.en);
+      const path = `${participant.id}/${s.key}_${Date.now()}.${ext}`;
+      const { error } = await db.storage.from(BUCKET).upload(path, blob, { upsert: false, contentType: blob.type || undefined });
+      if (error) throw error;
+      paths[s.key] = path;
+    }
+    btn.textContent = 'സേവ് ചെയ്യുന്നു… · Saving…';
+    const { error } = await db.rpc('submit_documents', {
+      p_mobile: mobileUsed, p_sponsor_name: sName, p_sponsor_phone: sPhone,
+      p_passport_front: paths.passport_front, p_passport_back: paths.passport_back,
+      p_id_front: paths.id_front, p_id_back: paths.id_back, p_consent: true });
+    if (error) throw error;
+  } catch (err) {
+    console.error(err);
+    btn.disabled = false; btn.textContent = 'സമർപ്പിക്കുക · Submit';
+    const t = String(err && (err.message || err));
+    if (t.startsWith('too_large')) return say(msg, 'err', 'ഒരു ഫയൽ 10 MB-ൽ കൂടുതലാണ് · A file is larger than 10 MB. Please use a smaller photo or PDF.');
+    return say(msg, 'err', 'സമർപ്പിക്കാൻ കഴിഞ്ഞില്ല. ഇന്റർനെറ്റ് പരിശോധിച്ച് വീണ്ടും ശ്രമിക്കുക · Could not submit. Check your connection and try again.');
+  }
+  $('app').style.display = 'none'; $('thanks').style.display = 'block'; window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+</script>
+</body>
+</html>
